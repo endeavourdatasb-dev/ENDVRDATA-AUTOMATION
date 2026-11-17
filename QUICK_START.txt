@@ -1,0 +1,43 @@
+SURVEY CLEANER — QUICK START (SOP 03 offline edition)
+
+SETUP
+1. Copy Survey_Cleaner.html to your computer.
+2. Double-click it. It opens in Chrome or Edge. No installation, no internet, no login.
+
+FIRST TIME
+- Click "Try the demo" to practise with made-up data. Every demo password is demo1234.
+  Sign in as Demo Cleaner and follow the NEXT STEP banner. Sign out and in as the person it names.
+
+ACCOUNTS
+- "Start a new project": enter the project name and who holds each role (manager, cleaner,
+  reviewer, releasing analyst), say which one you are, and create your password.
+- Everyone else picks their name and creates their own password the first time they sign in.
+- Each person can only do their own steps. Only the manager can change roles, add people
+  or reset a forgotten password (step 1, Team & roles).
+- Accounts belong to the project file, so the reviewer can sign in on another computer
+  after opening the saved .zip.
+
+EVERY DATASET
+1. Project & questionnaire  - Cleaner enters project, people, MoE basis; attaches the approved QRE.
+2. Receive data             - Cleaner drops in the data file (.xlsx .xls .ods .csv .tsv .txt .json).
+                              Standard raw-data checks run on every file straight away: IDs,
+                              empty/duplicate rows, Excel-damaged numbers, errors, formulas,
+                              garbled text, empty columns, mixed types, spaces, straight-lining.
+3. Cleaning rules           - Cleaner sets codes, required questions and skip logic. Manager approves.
+                              (Tip: "Save rules template" and "Load rules template" reuse rules next wave.)
+4. Check, fix & inspect     - Cleaner runs checks. Manager decides each issue. Cleaner applies
+                              decisions and inspects every respondent.
+5. Independent review       - Reviewer (not the cleaner) checks and records pass/fail.
+6. Manager approval         - Manager approves the exact verified version.
+7. Release                  - Releasing analyst downloads the approved Excel and release package.
+
+SAVING — IMPORTANT
+- Nothing is saved automatically. Click "Save project" to download a .zip.
+- To continue, or to hand over to the reviewer/manager, open that .zip with "Open".
+- The .zip contains the original data. Keep it in the same secure place as the original files.
+
+LIMITS
+- Up to 10,000 respondents and 500 columns per file, 25 MB per file.
+- Not supported: SPSS .sav, password-protected or macro-enabled files.
+- Passwords stop casual misuse, but this is not bank-grade security: someone with technical
+  skill and the project file could get around it. Sign-offs are recorded attestations.

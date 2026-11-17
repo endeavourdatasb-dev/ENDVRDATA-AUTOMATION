@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="__CSP__">
+<meta name="description" content="Offline survey data cleaning, independent verification and local release. No AI. No uploads.">
+<title>Survey Cleaner · Endeavour DATA</title>
+<link rel="icon" href="__FAVICON__">
+<style>__STYLES__</style>
+</head>
+<body>
+<noscript>This offline tool needs JavaScript turned on in your browser. It sends no data anywhere.</noscript>
+<div id="app"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="busy" hidden><div class="box" role="alert" aria-busy="true"><p class="msg">Working…</p><div class="bar"><i></i></div><button class="ghost small" data-act="cancelBusy" hidden>Cancel</button></div></div>
+<dialog id="modal" aria-labelledby="modal-title"></dialog>
+<input type="file" id="data-input" accept=".xlsx,.xls,.ods,.csv,.tsv,.txt,.json" multiple hidden>
+<input type="file" id="project-input" accept=".zip" hidden>
+<input type="file" id="qre-input" hidden>
+<input type="file" id="template-input" accept=".json,.xlsx" hidden>
+<script>__XLSX__</script>
+<script>__FFLATE__</script>
+<script>__ENGINE__</script>
+<script>__IO__</script>
+<script>__APP__</script>
+</body>
+</html>

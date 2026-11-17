@@ -1,0 +1,17 @@
+# Build output (rebuild with: node build.mjs). docs/ is kept because GitHub Pages publishes it.
+dist/
+
+# Never upload survey data or saved projects: they contain respondents' data.
+*.zip
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+*.tsv
+*.sav
+*.ods
+*.json
+*.docx
+*.pdf
+
+.DS_Store
