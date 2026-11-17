@@ -33,7 +33,9 @@ function build() {
   const logo = 'data:image/png;base64,' + b64('./vendor/logo-mark.png');
   const styles = read('./src/styles.css').replace('__FONTS__', () => fonts).replace('__LOGO__', () => logo);
   const csp = `default-src 'none'; script-src ${hashes}; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; worker-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'`;
-  let html = read('./src/shell.html').replace('__CSP__', csp).replace('__STYLES__', () => styles).replace('__FAVICON__', () => logo);
+  // The guide (src/guide.html) is inlined as a <template>; its screenshots in src/guide/ become data URIs.
+  const guide = read('./src/guide.html').replace(/src="guide\/([\w-]+\.(webp|png|jpg))"/g, (_, f, ext) => `src="data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${b64('./src/guide/' + f)}"`);
+  let html = read('./src/shell.html').replace('__CSP__', csp).replace('__STYLES__', () => styles).replace('__FAVICON__', () => logo).replace('__GUIDE__', () => guide);
   for (const [k, v] of Object.entries(scripts)) html = html.replace(k, () => v);
 
   mkdirSync(url('./dist/'), { recursive: true });

@@ -5,8 +5,9 @@ SETUP
 2. Double-click it. It opens in Chrome or Edge. No installation, no internet, no login.
 
 FIRST TIME
-- Click "Try the demo" to practise with made-up data. Every demo password is demo1234.
-  Sign in as Demo Cleaner and follow the NEXT STEP banner. Sign out and in as the person it names.
+- Click "How to use (guide)" on the start page: a short step-by-step guide with screenshots
+  and examples. It is also under "Guide" at the top of every project.
+- Follow the NEXT STEP banner. It says what to do next and who does it.
 
 ACCOUNTS
 - "Start a new project": enter the project name and who holds each role (manager, cleaner,

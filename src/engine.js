@@ -1,7 +1,8 @@
 /* Local Survey Cleaner: deterministic domain logic. No external services. */
 (function (root) {
   'use strict';
-  const VERSION = '1.0.0';
+  const VERSION = '2.0.0';
+  const RESP_COL = 'Resp #';
   const clone = x => JSON.parse(JSON.stringify(x));
   const now = () => new Date().toISOString();
   const uid = () => {
@@ -64,7 +65,7 @@
   }
   function createProject() {
     return { schema: 1, appVersion: VERSION, id: uid(), name: 'Untitled project', mode: 'CATI', target: '', source: '', vendor: '', moe: 'Not applicable', moeBasis: '', qreVersion: '', qre: null,
-      roles: { cleaner: '', reviewer: '', manager: '', releaser: '' }, assignmentReason: '', fields: [], checks: [], eligibility: null, duplicateRows: true,
+      roles: { cleaner: '', reviewer: '', manager: '', releaser: '' }, assignmentReason: '', fields: [], checks: [], eligibility: null, duplicateRows: true, derived: [], respNumber: true,
       ruleApproval: null, datasets: [], history: [], cleaners: [], accounts: [], verification: null, approval: null, released: null, revision: 0, createdAt: now(), updatedAt: now(), demo: false };
   }
   function defaultField(name) {
@@ -72,7 +73,80 @@
       mappings: [], route: null, clearSkipped: false, delimiter: ';', exclusive: [], minSelections: null, maxSelections: null };
   }
   function template(p) {
-    return { schema: 1, qreVersion: p.qreVersion, qreHash: p.qre?.hash || '', fields: p.fields, checks: p.checks, eligibility: p.eligibility, duplicateRows: p.duplicateRows };
+    const t = { schema: 1, qreVersion: p.qreVersion, qreHash: p.qre?.hash || '', fields: p.fields, checks: p.checks, eligibility: p.eligibility, duplicateRows: p.duplicateRows };
+    // v2 settings are only included once a project has them, so v1 approvals keep their checksum.
+    if (p.derived !== undefined) t.derived = p.derived;
+    if (p.respNumber !== undefined) t.respNumber = p.respNumber;
+    return t;
+  }
+  // ---- Added (derived) columns: new output columns calculated from answers. Never stored; recalculated from the current values. ----
+  const NUMBER_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+  const bandLabel = b => String(b.label ?? '').trim() || (b.max === null || b.max === undefined ? b.min + '+' : b.min + '-' + b.max);
+  function derive(p, row) {
+    const values = {}, problems = [];
+    for (const d of p.derived || []) {
+      let v = null;
+      if (d.kind === 'combine') {
+        const parts = d.parts.map(n => text(Object.hasOwn(values, n) ? values[n] : row[n]));
+        if (!parts.includes('')) v = parts.join(d.sep ?? '|');
+      } else {
+        const f = p.fields.find(x => x.name === d.source), c = row[d.source], s = text(c).trim();
+        // Blank or already-invalid answers give a blank; the original problem is flagged on its own.
+        if (f && !blank(c) && !fieldErrors(f, c).length) {
+          if (d.kind === 'label') {
+            const m = d.labels.find(x => String(x.from) === s);
+            if (m) v = String(m.to);
+            else if (!f.missing.map(String).includes(s)) problems.push([d.source, d.name, `${d.name}: “${s}” has no label in the approved table.`]);
+          } else if (!f.missing.map(String).includes(s)) {
+            const n = typeof c.v === 'number' ? c.v : NUMBER_TEXT.test(s) ? Number(s) : null;
+            const b = n === null ? null : d.bands.find(x => n >= x.min && (x.max === null || x.max === undefined || n <= x.max));
+            if (b) v = bandLabel(b);
+            else problems.push([d.source, d.name, n === null ? `${d.name}: “${s}” is not a number, so it has no band.` : `${d.name}: ${n} is not inside any approved band.`]);
+          }
+        }
+      }
+      values[d.name] = cell(v);
+    }
+    return { values, problems };
+  }
+  function validateDerived(p) {
+    const errors = [], fieldNames = p.fields.map(f => f.name);
+    const taken = new Set([...fieldNames, ...(p.datasets || []).flatMap(d => d.outputColumns)].map(normalName));
+    if (p.respNumber && taken.has(normalName(RESP_COL))) errors.push(`The data already has a column called “${RESP_COL}”. Untick “Add ${RESP_COL}” or rename that column.`);
+    if (p.respNumber !== undefined && typeof p.respNumber !== 'boolean') errors.push('Invalid Resp # setting.');
+    if (p.derived === undefined) return errors;
+    if (!Array.isArray(p.derived) || p.derived.length > 50) return errors.concat('Added columns are invalid (at most 50).');
+    const earlier = [];
+    for (const d of p.derived) {
+      const name = String(d?.name ?? '').trim(), label = 'Added column ' + (name || '(no name)');
+      if (!name || name.length > 60 || unsafe(name)) errors.push(label + ': enter a name of up to 60 characters.');
+      else if (taken.has(normalName(name)) || normalName(name) === normalName(RESP_COL)) errors.push(label + ': this name is already used by another column.');
+      if (d?.kind === 'band' || d?.kind === 'label') {
+        if (!fieldNames.includes(d.source)) errors.push(label + ': choose the question it is calculated from.');
+      }
+      if (d?.kind === 'band') {
+        const bands = Array.isArray(d.bands) ? d.bands : [];
+        if (!bands.length) errors.push(label + ': add at least one band.');
+        if (bands.some(b => !Number.isFinite(b.min) || (b.max !== null && b.max !== undefined && (!Number.isFinite(b.max) || b.max < b.min)))) errors.push(label + ': each band needs a “from” number and a “to” number that is not smaller (leave “to” empty for “and over”).');
+        else {
+          const sorted = [...bands].sort((a, b) => a.min - b.min);
+          for (let i = 1; i < sorted.length; i++) { const prev = sorted[i - 1]; if (prev.max === null || prev.max === undefined || prev.max >= sorted[i].min) { errors.push(label + ': bands overlap.'); break; } }
+          const names = bands.map(bandLabel); if (new Set(names).size !== names.length) errors.push(label + ': two bands have the same label.');
+        }
+      } else if (d?.kind === 'label') {
+        const labels = Array.isArray(d.labels) ? d.labels : [], from = labels.map(x => String(x.from ?? '').trim());
+        if (!labels.length) errors.push(label + ': add at least one code and label.');
+        if (from.some(x => !x) || labels.some(x => !String(x.to ?? '').trim())) errors.push(label + ': every row needs a code and a label.');
+        if (new Set(from).size !== from.length) errors.push(label + ': a code appears twice.');
+      } else if (d?.kind === 'combine') {
+        const parts = Array.isArray(d.parts) ? d.parts : [];
+        if (parts.length < 2) errors.push(label + ': choose at least two columns to combine.');
+        if (parts.some(x => !fieldNames.includes(x) && !earlier.includes(x))) errors.push(label + ': it can only combine questions and added columns listed above it.');
+        if (typeof d.sep !== 'string' || !d.sep.length || d.sep.length > 3) errors.push(label + ': enter a separator of 1 to 3 characters.');
+      } else errors.push(label + ': choose what kind of column it is.');
+      if (name) { earlier.push(name); taken.add(normalName(name)); }
+    }
+    return errors;
   }
   function conditionFields(c) { return c?.conditions ? c.conditions.flatMap(conditionFields) : c?.field ? [c.field] : []; }
   const unsafe = n => ['__proto__', 'constructor', 'prototype'].includes(n);
@@ -118,6 +192,7 @@
     names.forEach(walk);
     for (const c of p.checks) { testCondition(c.when, 'Cross-check'); testCondition(c.expect, 'Cross-check'); }
     testCondition(p.eligibility, 'Eligibility');
+    errors.push(...validateDerived(p));
     return [...new Set(errors)];
   }
   function updateProject(p, changes, actor) {
@@ -138,7 +213,7 @@
   function updateRules(p, changes, actor) {
     actorCheck(p, actor, ['cleaner', 'manager']);
     invalidate(p, actor, 'Questionnaire rules changed', true);
-    for (const key of ['fields', 'checks', 'eligibility', 'duplicateRows']) if (changes[key] !== undefined) p[key] = clone(changes[key]);
+    for (const key of ['fields', 'checks', 'eligibility', 'duplicateRows', 'derived', 'respNumber']) if (changes[key] !== undefined) p[key] = clone(changes[key]);
     audit(p, 'Questionnaire rules updated', actor, { rules: template(p) });
   }
   async function approveRules(p, actor, note) {
@@ -313,6 +388,7 @@
         } else if (path === true && (f.required || f.id) && (f.id ? missing(f, c) : blank(c))) pushIssue(issues, d, row, f.name, 'REQUIRED', f.id ? 'Respondent ID is missing.' : 'Required answer is blank.');
         for (const [code, msg] of fieldErrors(f, c)) pushIssue(issues, d, row, f.name, code, msg);
       }
+      for (const [field, column, msg] of derive(p, row.current).problems) pushIssue(issues, d, row, field, 'DERIVED', msg, 'DERIVED:' + column);
       // Unconfigured source columns are preserved and formula cells are still flagged.
       for (const name of d.outputColumns) if (!p.fields.some(f => f.name === name) && row.current[name]?.f) pushIssue(issues, d, row, name, 'FORMULA', 'Formula in an additional source column.');
       const eligible = condition(p.eligibility, row.current, p.fields);
@@ -617,6 +693,8 @@
     assert(p.roles && ['cleaner','reviewer','manager','releaser'].every(k => typeof p.roles[k] === 'string'), 'Project role records are invalid.');
     assert(p.fields.length <= 500 && p.datasets.length <= 50, 'Project exceeds supported limits.');
     assert(Array.isArray(p.checks) && Array.isArray(p.cleaners), 'Project rules/history are invalid.');
+    assert(p.derived === undefined || (Array.isArray(p.derived) && p.derived.length <= 50 && p.derived.every(d => d && typeof d.name === 'string' && !unsafe(d.name))), 'Added columns are invalid.');
+    assert(p.respNumber === undefined || typeof p.respNumber === 'boolean', 'Resp # setting is invalid.');
     assert(p.accounts === undefined || (Array.isArray(p.accounts) && p.accounts.length <= 100 && p.accounts.every(a => a && typeof a.name === 'string' && a.name.trim())), 'Team accounts are invalid.');
     for (const f of p.fields) assert(typeof f.name === 'string' && !unsafe(f.name) && Array.isArray(f.allowed) && Array.isArray(f.missing) && Array.isArray(f.mappings), 'Invalid field configuration.');
     const rowKeys = new Set();
@@ -628,7 +706,7 @@
       }
     }
   }
-  const api = { VERSION, clone, now, uid, normalName, value, blank, text, cell, stable, hash, assert, unsafe, actorCheck, audit, invalidate, createProject, defaultField,
+  const api = { VERSION, RESP_COL, derive, validateDerived, bandLabel, clone, now, uid, normalName, value, blank, text, cell, stable, hash, assert, unsafe, actorCheck, audit, invalidate, createProject, defaultField,
     template, validateTemplate, updateProject, updateRules, approveRules, fieldErrors, missing, condition, scanDataset, allIssues, unresolved, count, registerCleaner,
     clean, preview, decide, proposeCellIssue, applyDecisions, inspect, inspectMany, attachQre, removeDataset, rawHealth, standardRowChecks, ensureAccounts, rolesOf, account, setPassword, checkPassword, addPerson, resetPassword, setRoles, markReleased, typedValue, sha256js, snapshot, snapshotHash, gates, verify, approveRelease, releaseCheck, stage, assertProject, checkRuleApproval };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

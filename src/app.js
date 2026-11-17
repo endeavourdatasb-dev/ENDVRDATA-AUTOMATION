@@ -35,8 +35,10 @@
     DUPLICATE_ROW: 'Exact duplicate row', INELIGIBLE: 'Not eligible', ELIGIBILITY_UNKNOWN: 'Eligibility unclear', CONTRADICTION: 'Contradictory answers',
     CHECK_UNKNOWN: 'Cross-check unclear', FORMULA: 'Formula in cell', CELL_ERROR: 'Spreadsheet error value', WHITESPACE: 'Spaces only',
     MULTI_DUPLICATE: 'Selection repeated', EXCLUSIVE: 'Exclusive choice with others', SELECTION_COUNT: 'Wrong number of selections', MANUAL: 'Flagged during inspection',
-    EMPTY_ROW: 'Empty row', MOSTLY_BLANK: 'Mostly blank respondent', STRAIGHTLINE: 'Same answer to every question', BAD_TEXT: 'Unreadable characters', SCI_NOTATION: 'Number damaged by Excel'
+    EMPTY_ROW: 'Empty row', MOSTLY_BLANK: 'Mostly blank respondent', STRAIGHTLINE: 'Same answer to every question', BAD_TEXT: 'Unreadable characters', SCI_NOTATION: 'Number damaged by Excel',
+    DERIVED: 'No band or label for an added column'
   };
+  const DERIVED_KINDS = { band: 'Bands', label: 'Labels', combine: 'Combine' };
   const OPS = [['eq', 'equals'], ['neq', 'does not equal'], ['in', 'is one of'], ['notin', 'is not one of'], ['gt', 'is greater than'], ['gte', 'is at least'], ['lt', 'is less than'], ['lte', 'is at most'], ['answered', 'is answered'], ['blank', 'is blank']];
   const TYPES = [['any', 'Any / codes'], ['text', 'Text'], ['number', 'Number'], ['integer', 'Whole number'], ['date', 'Date'], ['multi', 'Multiple choice']];
   const ACTIONS = { retain: 'Retain and flag', correct: 'Correct from evidence', exclude: 'Exclude respondent' };
@@ -145,7 +147,7 @@
   // ---------- render ----------
   function render() {
     const app = $('#app');
-    if (!P) { app.innerHTML = ui.setup ? setupView() : homeView(); return; }
+    if (!P) { app.innerHTML = ui.guide ? guideView() : ui.setup ? setupView() : homeView(); return; }
     if (!user) { app.innerHTML = loginView(); const f = document.querySelector('#app [autofocus]'); if (f) f.focus(); return; }
     const s = status(), next = nextAction(s);
     const stage = E.stage(P);
@@ -165,6 +167,7 @@
         <div class="as"><span class="avatar">${esc(initials(user))}</span><div><b>${esc(user)}</b>${roleCtl}</div></div>
         <div class="filebtns">
           <button class="primary" data-act="saveProject">${ui.dirty ? '<span class="dot" title="Unsaved changes"></span>' : ''}Save project</button>
+          <button class="ghost" data-act="guide">Guide</button>
           <button class="ghost" data-act="signOut">Sign out</button>
           <button class="ghost" data-act="closeProject">Close</button>
         </div>
@@ -182,6 +185,11 @@
   }
 
   const brandBar = () => `<div class="home-top"><div class="brandmark"><span class="logo" aria-hidden="true"></span><div><b class="wm">ENDEAVOUR DATA</b><small>survey cleaner</small></div></div><span class="ver">DATA SOP 03 · v${esc(E.VERSION)}</span></div>`;
+  const guideHtml = () => document.getElementById('guide-tpl')?.innerHTML || '<p>The guide is missing from this copy of the app.</p>';
+  function guideView() {
+    return `${brandBar()}<div class="home guide-page"><button class="ghost small" data-act="closeGuide">← Back to start</button><div class="guide">${guideHtml()}</div>
+      <p><button class="ghost small" data-act="closeGuide">← Back to start</button></p></div>`;
+  }
   function homeView() {
     return `${brandBar()}<div class="home">
       <h1>Survey Cleaner</h1>
@@ -189,7 +197,7 @@
       <div class="start">
         <button class="primary big" data-act="newProject">Start a new project</button>
         <button class="outline big" data-act="openProject">Open a saved project</button>
-        <button class="ghost big" data-act="demo">Practise with the demo</button>
+        <button class="ghost big" data-act="guide">How to use (guide)</button>
       </div>
       <div class="homegrid">
         <section class="card"><h2>Process</h2>
@@ -197,7 +205,7 @@
         <section class="card"><h2>Before you start</h2>
           <p><b>Accounts.</b> Each project has its own team. Whoever creates the project names the manager, cleaner, reviewer and releasing analyst. Everyone else creates their password the first time they sign in.</p>
           <p><b>Saving.</b> Nothing is saved automatically. Click <b>Save project</b> to download a .zip of the work. To continue later, or to hand over to the reviewer or manager, open that .zip with <b>Open a saved project</b>.</p>
-          <p><b>Demo.</b> Made-up data and a demo team for practice. Every demo password is <code>demo1234</code>.</p></section>
+          <p><b>New to this?</b> Read <button class="link" data-act="guide">How to use</button>: a short step-by-step guide with screenshots and examples. It is also under <b>Guide</b> at the top of every project.</p></section>
       </div>
     </div>`;
   }
@@ -439,7 +447,7 @@ ${teamCard()}
   }
 
   // ---------- step 3: rules ----------
-  function draft() { if (!ui.draft) { ui.draft = E.clone({ fields: P.fields, checks: P.checks, eligibility: P.eligibility, duplicateRows: P.duplicateRows }); ui.draftDirty = false; } return ui.draft; }
+  function draft() { if (!ui.draft) { ui.draft = E.clone({ fields: P.fields, checks: P.checks, eligibility: P.eligibility, duplicateRows: P.duplicateRows, derived: P.derived || [], respNumber: !!P.respNumber }); ui.draftDirty = false; } return ui.draft; }
   function condText(c) {
     if (!c) return '';
     if (c.conditions) return c.conditions.map(condText).join(c.logic === 'all' ? ' and ' : ' or ');
@@ -487,6 +495,11 @@ ${teamCard()}
       <div class="card"><h2>Cross-question checks</h2><p class="hint">Catch contradictions, e.g. “If Q5 (owns car) = 2 (No) then Q6 (car brand) is blank”.</p>
         ${checks ? `<ul class="checks">${checks}</ul>` : '<p class="muted">None yet.</p>'}
         <button class="small ghost" data-act="editCheck" data-ci="-1" ${dis}>Add a check</button></div>
+      <div class="card"><h2>Added columns</h2><p class="hint">New columns calculated from the answers and added to the cleaned data, e.g. age bands, English labels or a quota segment. The original columns are never changed. A value that does not fit is left blank and flagged for the manager.</p>
+        <label class="check"><input type="checkbox" id="dv_resp" ${dr.respNumber ? 'checked' : ''} ${dis}> Add <b>${esc(E.RESP_COL)}</b> as the first column: each respondent's row number in the raw file, so every row can be traced back.</label>
+        ${dr.derived.length ? `<ul class="checks">${dr.derived.map((d, i) => `<li><span><b>${esc(d.name)}</b> <span class="tag">${esc(DERIVED_KINDS[d.kind] || d.kind)}</span><small>${esc(derivedText(d))}</small></span>
+          <span class="row"><button class="small ghost" data-act="editDerived" data-di="${i}">${can ? 'Edit' : 'View'}</button>${can ? `<button class="small ghost" data-act="delDerived" data-di="${i}">Remove</button>` : ''}</span></li>`).join('')}</ul>` : '<p class="muted">No added columns yet.</p>'}
+        <button class="small ghost" data-act="editDerived" data-di="-1" ${dis}>+ Add column</button></div>
       <div class="savebar" id="savebar" ${ui.draftDirty ? '' : 'hidden'}><span>You have unsaved rule changes.</span><button class="ghost" data-act="discardRules">Discard</button><button class="primary" data-act="saveRules" ${dis}>Save rules</button></div>
       <div class="card ${approved ? 'okcard' : 'warncard'}"><h2>Manager approval of rules</h2>
         ${errors.length ? `<div class="error"><b>Fix before approval:</b><ul>${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : ''}
@@ -614,6 +627,73 @@ ${teamCard()}
       <div class="actions"><button class="ghost" data-act="clearElig">Everyone is eligible</button><button class="ghost" data-act="closeModal">Cancel</button><button class="primary" data-act="saveElig">Done</button></div>`, true);
   }
 
+  // added columns (derived)
+  function derivedText(d) {
+    if (d.kind === 'band') return 'Bands of ' + d.source + ': ' + d.bands.map(E.bandLabel).join(' · ');
+    if (d.kind === 'label') { const l = d.labels.map(x => x.from + ' → ' + x.to); return 'Labels of ' + d.source + ': ' + l.slice(0, 6).join(' · ') + (l.length > 6 ? ' …' : ''); }
+    return 'Combines ' + d.parts.join(' ' + d.sep + ' ');
+  }
+  const pickOpts = (list, sel) => '<option value="">— choose —</option>' + list.map(n => `<option ${n === sel ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  const bandRow = b => `<div class="b-row band"><input class="bd-min" value="${esc(b.min ?? '')}" placeholder="from"> to <input class="bd-max" value="${esc(b.max ?? '')}" placeholder="and over"> = <input class="bd-label" value="${esc(b.label ?? '')}" placeholder="label (optional)"><button class="small ghost" data-act="delCond" title="Remove">✕</button></div>`;
+  const labelRow = m => `<div class="b-row label"><input class="lb-from" value="${esc(m.from ?? '')}" placeholder="code"> = <input class="lb-to" value="${esc(m.to ?? '')}" placeholder="label, e.g. Malay"><button class="small ghost" data-act="delCond" title="Remove">✕</button></div>`;
+  const partRow = sel => `<div class="b-row part"><select class="pt">${pickOpts(ui.dvParts || [], sel)}</select><button class="small ghost" data-act="delCond" title="Remove">✕</button></div>`;
+  function editDerived(i) {
+    const dr = draft(), can = canAct(['cleaner', 'manager']);
+    const d = i >= 0 ? dr.derived[i] : { name: '', kind: 'band', source: '', sep: '|' };
+    ui.dvParts = [...dr.fields.map(f => f.name), ...dr.derived.slice(0, i >= 0 ? i : dr.derived.length).map(x => x.name)];
+    const k = d.kind;
+    openModal(`<h2 id="modal-title">${i >= 0 ? (can ? 'Edit' : 'View') : 'Add'} column</h2><div class="modal-body">
+      <div class="grid2"><label class="f"><span>New column name</span><input id="dv_name" value="${esc(d.name)}" placeholder="e.g. AGE_BAND"></label>
+        <label class="f"><span>What it does</span><select id="dv_kind">
+          <option value="band" ${k === 'band' ? 'selected' : ''}>Group numbers into bands (e.g. age bands)</option>
+          <option value="label" ${k === 'label' ? 'selected' : ''}>Turn codes into labels (e.g. 1 = Malay)</option>
+          <option value="combine" ${k === 'combine' ? 'selected' : ''}>Join columns into one key (e.g. a quota segment)</option></select></label></div>
+      <div id="dv_srcwrap" ${k === 'combine' ? 'hidden' : ''}><label class="f"><span>Calculated from question</span><select id="dv_src">${pickOpts(dr.fields.map(f => f.name), d.source)}</select></label></div>
+      <div id="dv_band" ${k === 'band' ? '' : 'hidden'}>
+        <p class="hint">One row per band. Both ends are included: <code>18 to 29</code> includes 18 and 29. Leave the last “to” empty for “and over”. Leave the label empty to show e.g. <code>18-29</code> or <code>60+</code>.</p>
+        <div id="dv_bands">${(d.bands?.length ? d.bands : [{}]).map(bandRow).join('')}</div><button class="small ghost" data-act="addBand">+ Add band</button></div>
+      <div id="dv_label" ${k === 'label' ? '' : 'hidden'}>
+        <p class="hint">One row per code. Codes missing from this table are flagged for the manager. Missing codes (e.g. 98, 99) are left blank unless you add them here.</p>
+        <div id="dv_labels">${(d.labels?.length ? d.labels : [{}]).map(labelRow).join('')}</div>
+        <div class="row"><button class="small ghost" data-act="addLabel">+ Add code</button><button class="small ghost" data-act="fillLabels">Fill in the question's codes</button></div></div>
+      <div id="dv_combine" ${k === 'combine' ? '' : 'hidden'}>
+        <p class="hint">Choose columns in order. You can use questions and added columns listed above this one. If any of them is blank for a respondent, the result is blank.</p>
+        <div id="dv_parts">${(d.parts?.length ? d.parts : ['', '']).map(partRow).join('')}</div><button class="small ghost" data-act="addPart">+ Add column</button>
+        <label class="f"><span>Separator</span><input id="dv_sep" value="${esc(d.sep ?? '|')}" class="tiny" maxlength="3"></label></div>
+      </div><div class="actions"><button class="ghost" data-act="closeModal">${can ? 'Cancel' : 'Close'}</button>${can ? `<button class="primary" data-act="saveDerived" data-di="${i}">Done</button>` : ''}</div>`, true);
+  }
+  function fillLabels() {
+    const f = draft().fields.find(x => x.name === val('dv_src'));
+    if (!f) return toast('Choose the question first.', 'error');
+    if (!f.allowed.length) return toast('That question has no allowed codes in the rules. Type the codes instead.', 'error');
+    const have = new Set([...document.querySelectorAll('#dv_labels .lb-from')].map(x => x.value.trim()));
+    [...document.querySelectorAll('#dv_labels .label')].forEach(r => { if (!r.querySelector('.lb-from').value.trim() && !r.querySelector('.lb-to').value.trim()) r.remove(); });
+    $('#dv_labels').insertAdjacentHTML('beforeend', f.allowed.map(String).filter(c => !have.has(c)).map(c => labelRow({ from: c, to: '' })).join(''));
+  }
+  function saveDerived(i) {
+    try {
+      const dr = draft(), kind = val('dv_kind'), name = val('dv_name').trim();
+      const num = s => s.trim() === '' ? null : Number(s.trim());
+      let def;
+      if (kind === 'band') {
+        const bands = [...document.querySelectorAll('#dv_bands .band')].map(r => ({ min: num(r.querySelector('.bd-min').value), max: num(r.querySelector('.bd-max').value), label: r.querySelector('.bd-label').value.trim() }))
+          .filter(b => b.min !== null || b.max !== null || b.label);
+        if (bands.some(b => b.min === null || Number.isNaN(b.min) || Number.isNaN(b.max))) throw Error('Each band needs a “from” number, and “to” must be a number or empty.');
+        def = { name, kind, source: val('dv_src'), bands: bands.sort((a, b) => a.min - b.min) };
+      } else if (kind === 'label') {
+        const labels = [...document.querySelectorAll('#dv_labels .label')].map(r => ({ from: r.querySelector('.lb-from').value.trim(), to: r.querySelector('.lb-to').value.trim() })).filter(m => m.from || m.to);
+        def = { name, kind, source: val('dv_src'), labels };
+      } else def = { name, kind, parts: [...document.querySelectorAll('#dv_parts .pt')].map(x => x.value).filter(Boolean), sep: val('dv_sep') };
+      const list = E.clone(dr.derived), old = i >= 0 ? list[i].name : null;
+      if (i >= 0) list[i] = def; else list.push(def);
+      // Renaming keeps later combined columns pointing at the right column.
+      if (old && old !== name) for (const x of list) if (x.kind === 'combine') x.parts = x.parts.map(n => n === old ? name : n);
+      const mine = E.validateDerived({ ...P, ...dr, derived: list }).filter(e => e.startsWith('Added column ' + (name || '(no name)') + ':'));
+      if (mine.length) throw Error(mine[0]);
+      dr.derived = list; closeModal(); ui.draftDirty = true; render();
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
   // ---------- step 4 ----------
   function step4(s) {
     const can = canAct(['cleaner']), approved = rulesApproved();
@@ -668,7 +748,7 @@ ${teamCard()}
       ${isMgr && f.status === 'open' && list.length ? `<div class="bulk"><label class="check"><input type="checkbox" id="isel_all" ${list.length && list.slice(page * PAGE, page * PAGE + PAGE).every(i => f.sel.has(i.id)) ? 'checked' : ''}> Select this page</label>
         <span>${f.sel.size} selected</span><button class="small" data-act="bulkDecide" data-action="retain" ${f.sel.size ? '' : 'disabled'}>Retain & flag selected…</button>
         <button class="small" data-act="bulkDecide" data-action="exclude" ${f.sel.size ? '' : 'disabled'}>Exclude selected respondents…</button></div>` : ''}
-      ${list.length ? `<div class="tablewrap"><table><thead><tr>${isMgr ? '<th></th>' : ''}<th>Respondent</th><th>Row</th><th>Question</th><th>Value</th><th>Problem</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>${pager(list.length, page, 'issuePage')}`
+      ${list.length ? `<div class="tablewrap"><table><thead><tr>${isMgr ? '<th></th>' : ''}<th>Respondent</th><th>Resp #</th><th>Question</th><th>Value</th><th>Problem</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>${pager(list.length, page, 'issuePage')}`
         : `<p class="muted center">${s.issues.length ? 'No issues match these filters.' : P.datasets.every(d => d.lastRunApproval) ? '🎉 No issues found.' : 'Run the checks to find issues.'}</p>`}
       <p class="hint">Click an issue to see the respondent and record the manager's decision. Each issue must end as: correct from verified evidence, retain and flag, or exclude with a reason.</p></div>`;
   }
@@ -685,7 +765,7 @@ ${teamCard()}
       <label class="f"><span>Reason</span><input id="dec_reason" value="${esc(dec?.reason ?? '')}" placeholder="Why this decision"></label>
       <label class="f"><span>Decision reference (optional)</span><input id="dec_ref" value="${esc(dec?.reference ?? '')}" placeholder="e.g. email 14 Nov, meeting note"></label>` : '';
     openModal(`<h2 id="modal-title">${esc(PROBLEMS[i.code] || i.code)}</h2><div class="modal-body">
-      <div class="issuehead"><div><small>Respondent</small><b>${esc(i.respondent || '—')}</b></div><div><small>File / row</small><b>${esc(d.name)} · row ${r.sourceRow}</b></div>
+      <div class="issuehead"><div><small>Respondent</small><b>${esc(i.respondent || '—')}</b></div><div><small>File / Resp #</small><b>${esc(d.name)} · ${r.sourceRow}</b></div>
         <div><small>Question</small><b>${esc(i.field || 'Whole respondent')}</b></div>${i.field ? `<div><small>Value</small><b>${showCell(i.observed)}</b></div>` : ''}</div>
       <p>${esc(i.message)}</p>
       ${dec ? `<div class="decided"><b>${esc(ACTIONS[dec.action])}</b>${dec.field && dec.action === 'correct' ? ` · ${esc(dec.field)} → “${esc(dec.value)}”` : ''} — by ${esc(dec.by)}, ${fmtDate(dec.at)}<br><small>Reason: ${esc(dec.reason)}${dec.evidence ? ' · Evidence: ' + esc(dec.evidence) : ''}${dec.reference ? ' · Ref: ' + esc(dec.reference) : ''}</small>${dec.applied ? '<br><span class="tag ok">Applied to the data</span>' : dec.action !== 'retain' ? '<br><span class="tag warn">Waiting for the cleaner to apply</span>' : ''}</div>` : ''}
@@ -739,7 +819,7 @@ ${teamCard()}
       <select id="rf_filter">${[['todo', 'Not inspected yet'], ['issues', 'With open issues'], ['excluded', 'Excluded'], ['done', 'Inspected'], ['all', 'All respondents']].map(([v, l]) => `<option value="${v}" ${f.filter === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <input id="rf_q" placeholder="Search respondent ID" value="${esc(f.q)}">
       ${can && pending ? `<button class="small" data-act="inspectShown" data-n="${shown.filter(x => !x.r.inspected).length}">Mark the ${shown.filter(x => !x.r.inspected).length} on this page as inspected…</button>` : ''}</div>
-      ${list.length ? `<div class="tablewrap"><table><thead><tr><th>Respondent</th><th>Row</th><th>Status</th><th>Issues</th><th>Inspected by</th></tr></thead><tbody>${rows}</tbody></table></div>${pager(list.length, page, 'respPage')}` : '<p class="muted center">No respondents in this view.</p>'}
+      ${list.length ? `<div class="tablewrap"><table><thead><tr><th>Respondent</th><th>Resp #</th><th>Status</th><th>Issues</th><th>Inspected by</th></tr></thead><tbody>${rows}</tbody></table></div>${pager(list.length, page, 'respPage')}` : '<p class="muted center">No respondents in this view.</p>'}
       <p class="hint">SOP 3.1: a person must look at each respondent, including open-ended answers and unusual combinations. Running the checks does not count as inspection. If data changes after inspection, the respondent must be inspected again.</p></div>`;
   }
   function respModal(dId, key) {
@@ -755,11 +835,13 @@ ${teamCard()}
         <td>${fi.map(i => `<button class="link" data-act="openIssue" data-id="${esc(i.id)}">${esc(PROBLEMS[i.code] || i.code)}${i.decision ? ' · ' + esc(ACTIONS[i.decision.action]) : ''}</button>`).join('<br>')}</td>
         <td>${canFlag && !r.excluded ? `<button class="small ghost" data-act="flagCell" data-d="${dId}" data-k="${esc(key)}" data-f="${esc(col)}">Flag</button>` : ''}</td></tr>`;
     }).join('');
+    const dv = E.derive(P, r.current).values;
+    const addedRows = (P.derived || []).map(x => `<tr><td><b>${esc(x.name)}</b><small class="sub">Added column</small></td><td>${showCell(dv[x.name])}</td><td></td><td></td></tr>`).join('');
     const whole = (byField.get('') || []).map(i => `<button class="link" data-act="openIssue" data-id="${esc(i.id)}">${esc(PROBLEMS[i.code] || i.code)}: ${esc(i.message)}</button>`).join('<br>');
     openModal(`<h2 id="modal-title">Respondent ${esc(r.respondent || '(no ID)')}</h2><div class="modal-body">
-      <p class="muted">${esc(d.name)} · source row ${r.sourceRow} · ${r.excluded ? `<span class="tag bad">Excluded</span> ${esc(r.excluded.reason)}` : '<span class="tag ok">Included</span>'} · ${r.inspected ? `Inspected by ${esc(r.inspected.by)}, ${fmtDate(r.inspected.at)}` : 'Not inspected yet'}</p>
+      <p class="muted">${esc(d.name)} · Resp # ${r.sourceRow} (row in the raw file) · ${r.excluded ? `<span class="tag bad">Excluded</span> ${esc(r.excluded.reason)}` : '<span class="tag ok">Included</span>'} · ${r.inspected ? `Inspected by ${esc(r.inspected.by)}, ${fmtDate(r.inspected.at)}` : 'Not inspected yet'}</p>
       ${whole ? `<div class="decided">${whole}</div>` : ''}
-      <div class="tablewrap tall"><table><thead><tr><th>Question</th><th>Answer</th><th>Issues</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="tablewrap tall"><table><thead><tr><th>Question</th><th>Answer</th><th>Issues</th><th></th></tr></thead><tbody>${rows}${addedRows}</tbody></table></div>
       <p class="hint">Use <b>Flag</b> if you see a problem the checks did not catch, e.g. a meaningless open-ended answer. The manager then decides what to do.</p></div>
       <div class="actions"><button class="ghost" data-act="closeModal">Close</button>${can && !r.inspected ? `<button class="primary" data-act="inspectOne" data-d="${dId}" data-k="${esc(key)}">I have inspected this respondent</button>` : ''}</div>`, true);
   }
@@ -769,7 +851,7 @@ ${teamCard()}
     return `<div class="card">${all.length ? `<div class="tablewrap"><table><thead><tr><th>Respondent</th><th>Question</th><th>Before</th><th>After</th><th>Reason</th><th>By / when</th></tr></thead><tbody>
       ${all.slice(page * PAGE, page * PAGE + PAGE).map(({ c }) => `<tr><td>${esc(c.respondent || c.rowKey.split(':').pop())}</td><td>${esc(c.field)}</td><td>${showCell(c.before)}</td><td>${showCell(c.after)}</td><td>${esc(c.reason)}</td><td>${esc(c.operator)}<small class="sub">${fmtDate(c.at)}</small></td></tr>`).join('')}
       </tbody></table></div>${pager(all.length, page, 'changesPage')}` : '<p class="muted center">No changes yet. Every change is recorded here with its before and after values, reason and approval.</p>'}
-      ${E.count(P).excluded ? `<h3>Exclusions</h3><div class="tablewrap short"><table><thead><tr><th>Respondent</th><th>Row</th><th>Reason</th><th>Decided by</th></tr></thead><tbody>${P.datasets.flatMap(d => d.rows.filter(r => r.excluded).map(r => `<tr><td>${esc(r.respondent)}</td><td>${r.sourceRow}</td><td>${esc(r.excluded.reason)}</td><td>${esc(r.excluded.by)}</td></tr>`)).join('')}</tbody></table></div>` : ''}</div>`;
+      ${E.count(P).excluded ? `<h3>Exclusions</h3><div class="tablewrap short"><table><thead><tr><th>Respondent</th><th>Resp #</th><th>Reason</th><th>Decided by</th></tr></thead><tbody>${P.datasets.flatMap(d => d.rows.filter(r => r.excluded).map(r => `<tr><td>${esc(r.respondent)}</td><td>${r.sourceRow}</td><td>${esc(r.excluded.reason)}</td><td>${esc(r.excluded.by)}</td></tr>`)).join('')}</tbody></table></div>` : ''}</div>`;
   }
   async function runChecks() {
     let changes;
@@ -777,7 +859,7 @@ ${teamCard()}
     const list = changes.slice(0, 30).map(x => `<tr><td>${esc(x.file)} · ${x.row}</td><td>${esc(x.field)}</td><td>${showCell(x.before)}</td><td>${showCell(x.after)}</td></tr>`).join('');
     confirmBox('Run checks on all respondents', `<p>Every respondent will be checked against the approved rules.</p>
       ${changes.length ? `<p><b>${plural(changes.length, 'cell')}</b> will be changed by the approved automatic corrections (recodes, trimming, conversions). Each change is logged with its before and after values.</p>
-      <div class="tablewrap short"><table><thead><tr><th>Row</th><th>Question</th><th>Before</th><th>After</th></tr></thead><tbody>${list}</tbody></table></div>${changes.length > 30 ? `<p class="hint">…and ${changes.length - 30} more.</p>` : ''}` : '<p>No automatic corrections apply. The data will only be checked.</p>'}`,
+      <div class="tablewrap short"><table><thead><tr><th>Resp #</th><th>Question</th><th>Before</th><th>After</th></tr></thead><tbody>${list}</tbody></table></div>${changes.length > 30 ? `<p class="hint">…and ${changes.length - 30} more.</p>` : ''}` : '<p>No automatic corrections apply. The data will only be checked.</p>'}`,
       changes.length ? 'Run checks & apply corrections' : 'Run checks', async () => {
         closeModal(); ui.cancel = false;
         await run(async () => {
@@ -886,54 +968,7 @@ ${teamCard()}
       toast('Opened ' + P.name + '. Integrity checks passed. Please sign in.');
     }, { mutate: false, msg: 'Opening and checking project…' });
   }
-  function newProject() { P = null; user = null; role = null; ui.dirty = false; ui.setup = true; ui.setupVals = null; render(); }
-  async function demo() {
-    await run(async () => {
-      P = E.createProject(); P.demo = true; ui.setup = false;
-      P.roles = { cleaner: 'Demo Cleaner', reviewer: 'Demo Reviewer', manager: 'Demo Manager', releaser: 'Demo Cleaner' };
-      E.ensureAccounts(P);
-      for (const a of P.accounts) await E.setPassword(P, a.name, 'demo1234');
-      user = 'Demo Cleaner'; role = 'cleaner';
-      const who = () => actor();
-      E.updateProject(P, { name: 'DEMO Brand Awareness Survey', mode: 'CATI', target: '30', source: 'Demo call centre', moe: 'Not applicable', moeBasis: 'Demo: quota sample, so a conventional MoE is not applicable', qreVersion: 'DEMO QRE v1 — 1 Nov 2026' }, who());
-      const qre = 'DEMO QUESTIONNAIRE v1 (made up for practice)\n\nS1 Age (18–80; under 18 = not eligible)\nS2 Gender: 1 Male, 2 Female\nQ1 Have you heard of Brand X? 1 Yes, 2 No\nQ2 [ASK IF Q1=1] Where did you hear of it? Multiple: 1 TV, 2 Radio, 3 Online, 4 Friends, 99 None of these (exclusive). Separate with ;\nQ3 Rating 1–5, 98 = Don\'t know\nQ4 Comments (open-ended)\n';
-      const qb = new TextEncoder().encode(qre);
-      E.attachQre(P, { name: 'DEMO_QRE_v1.txt', size: qb.length, hash: await E.hash(qb), bytes64: IO.base64(qb) }, who());
-      const rows = [['resp_id', 'age', 'gender', 'q1_aware', 'q2_source', 'q3_rating', 'q4_comment']];
-      const comments = ['Good value', 'Ads are too loud', '', 'asdfgh', 'Like the new packaging', '', 'Would recommend', 'n/a', '', 'Seen it on TikTok'];
-      for (let i = 1; i <= 30; i++) {
-        const aware = i % 3 === 0 ? '2' : '1';
-        rows.push(['R' + String(i).padStart(3, '0'), String(20 + (i * 7) % 50), i % 2 ? 'Male' : 'Female', aware, aware === '1' ? ['1', '1;3', '3', '2;4', '4'][i % 5] : '', String(1 + i % 5), comments[i % 10]]);
-      }
-      rows[4][1] = '150';       // out of range
-      rows[6][2] = 'F ';        // trailing space, then recode
-      rows[9][4] = '1;3';       // answered though Q1 = 2 (should skip)
-      rows[11][3] = '';         // missing required Q1
-      rows[13][4] = '1;99';     // exclusive choice with another
-      rows[15][5] = '7';        // invalid code
-      rows[17][1] = '16';       // not eligible
-      rows[20][0] = 'R019';     // duplicate ID
-      rows[22][5] = '98';       // don't know (valid missing code)
-      rows[25][6] = 'Bagus, harga berpatutan â€“ Ã©';  // garbled text (encoding problem)
-      rows.push(['', '', '', '', '', '', '']); // empty row exported by mistake
-      const csv = rows.map(r => r.map(v => /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v).join(',')).join('\n');
-      const input = await IO.readInput(new File([csv], 'demo_responses.csv', { type: 'text/csv' }), {});
-      IO.importDataset(P, input, 0, 1, {}, who(), { receivedAt: E.now(), source: 'Demo call centre', vendor: 'Batch 1 of 1' });
-      const f = n => P.fields.find(x => x.name === n), fields = E.clone(P.fields);
-      const set = (n, o) => Object.assign(fields.find(x => x.name === n), o);
-      set('resp_id', { id: true, type: 'text', required: true });
-      set('age', { type: 'integer', required: true, number: true, min: 15, max: 90, label: 'S1 Age' });
-      set('gender', { required: true, allowed: ['1', '2'], trim: true, number: true, mappings: [{ from: 'Male', to: 1 }, { from: 'Female', to: 2 }, { from: 'F', to: 2 }, { from: 'M', to: 1 }], label: 'S2 Gender' });
-      set('q1_aware', { required: true, allowed: ['1', '2'], number: true, label: 'Q1 Heard of Brand X?' });
-      set('q2_source', { type: 'multi', required: true, allowed: ['1', '2', '3', '4', '99'], exclusive: ['99'], delimiter: ';', route: { field: 'q1_aware', op: 'eq', value: '1' }, label: 'Q2 Where heard (ask if Q1=1)' });
-      set('q3_rating', { required: true, allowed: ['1', '2', '3', '4', '5'], missing: ['98'], number: true, label: 'Q3 Rating' });
-      set('q4_comment', { type: 'text', label: 'Q4 Comments (open-ended)' });
-      void f;
-      E.updateRules(P, { fields, eligibility: { field: 'age', op: 'gte', value: '18' }, checks: [] }, who());
-      ui.step = 3; ui.draft = null; user = null; role = null; ui.loginAs = 'Demo Cleaner';
-      toast('Demo ready. Sign in as Demo Cleaner with password demo1234, then follow the NEXT STEP banner.');
-    }, { msg: 'Building demo…' });
-  }
+  function newProject() { P = null; user = null; role = null; ui.dirty = false; ui.guide = false; ui.setup = true; ui.setupVals = null; render(); }
 
   async function release() {
     const dest = val('rl_dest').trim();
@@ -955,10 +990,14 @@ ${teamCard()}
   // ---------- events ----------
   const acts = {
     newProject: () => (P && ui.dirty) ? confirmBox('Discard unsaved changes?', '<p>The current project has unsaved changes.</p>', 'Start new', () => { closeModal(); ui.dirty = false; newProject(); }, true) : newProject(),
-    demo: () => (P && ui.dirty) ? confirmBox('Discard unsaved changes?', '<p>The current project has unsaved changes.</p>', 'Open demo', () => { closeModal(); ui.dirty = false; demo(); }, true) : demo(),
+    guide: () => {
+      if (P) { openModal(`<div class="modal-body guide">${guideHtml()}</div><div class="actions"><button class="ghost" data-act="closeModal">Close guide</button></div>`, true); $('#modal').classList.add('guidebox'); return; }
+      ui.guide = true; render(); window.scrollTo(0, 0);
+    },
+    closeGuide: () => { ui.guide = false; render(); window.scrollTo(0, 0); },
     openProject: () => pickFile('#project-input'),
     saveProject, closeProject: () => {
-      const go = () => { P = null; user = null; role = null; ui.dirty = false; ui.pending = null; ui.draft = null; ui.setup = false; closeModal(); render(); };
+      const go = () => { P = null; user = null; role = null; ui.dirty = false; ui.pending = null; ui.draft = null; ui.setup = false; ui.guide = false; closeModal(); render(); };
       ui.dirty ? confirmBox('Close without saving?', '<p>Unsaved changes will be lost. Click <b>Save project</b> first to keep them.</p>', 'Close without saving', go, true) : go();
     },
     go: el => { ui.step = +el.dataset.step; window.scrollTo(0, 0); render(); },
@@ -983,6 +1022,11 @@ ${teamCard()}
     editCheck: el => editCheck(+el.dataset.ci), saveCheck: el => saveCheck(+el.dataset.ci),
     delCheck: el => { draft().checks.splice(+el.dataset.ci, 1); ui.draftDirty = true; render(); },
     editElig, saveElig: () => { try { draft().eligibility = readBuilder('el_b'); closeModal(); ui.draftDirty = true; render(); } catch (e) { toast(e.message, 'error'); } },
+    editDerived: el => editDerived(+el.dataset.di), saveDerived: el => saveDerived(+el.dataset.di), fillLabels,
+    delDerived: el => { draft().derived.splice(+el.dataset.di, 1); ui.draftDirty = true; render(); },
+    addBand: () => $('#dv_bands').insertAdjacentHTML('beforeend', bandRow({})),
+    addLabel: () => $('#dv_labels').insertAdjacentHTML('beforeend', labelRow({})),
+    addPart: () => $('#dv_parts').insertAdjacentHTML('beforeend', partRow('')),
     clearElig: () => { draft().eligibility = null; closeModal(); ui.draftDirty = true; render(); },
     discardRules: () => { ui.draft = null; ui.draftDirty = false; render(); },
     saveRules: () => run(() => { const dr = draft(); E.updateRules(P, dr, actor()); ui.draft = null; ui.draftDirty = false; toast('Rules saved. The manager now needs to approve them.'); }),
@@ -1041,6 +1085,8 @@ ${teamCard()}
     if (t.id === 'role') { if (myRoles().includes(t.value)) role = t.value; render(); return; }
     if (t.dataset.fi !== undefined && t.dataset.k) return onRuleInput(t);
     if (t.id === 'fm_always') { $('#fm_routewrap').hidden = t.checked; return; }
+    if (t.id === 'dv_resp') { draft().respNumber = t.checked; ui.draftDirty = true; return render(); }
+    if (t.id === 'dv_kind') { for (const k of ['band', 'label', 'combine']) $('#dv_' + k).hidden = t.value !== k; $('#dv_srcwrap').hidden = t.value === 'combine'; return; }
     if (t.name === 'dec') { $('#dec_correct').classList.toggle('hidden', t.value !== 'correct'); return; }
     if (t.dataset.map !== undefined) { ui.pending.mapping[t.dataset.map] = t.value; if (!t.value) delete ui.pending.mapping[t.dataset.map]; return render(); }
     if (t.id === 'pd_table') { ui.pending.table = +t.value; ui.pending.header = 1; autoMap(); return render(); }
@@ -1070,7 +1116,7 @@ ${teamCard()}
       return run(async () => {
         const tpl = IO.parseTemplate(new Uint8Array(await file.arrayBuffer()), file.name.toLowerCase());
         if (P.datasets.length) { const cols = new Set(P.datasets[0].outputColumns), miss = tpl.fields.filter(f => !cols.has(f.name)).map(f => f.name); if (miss.length) throw Error('These questions in the template are not columns in the data: ' + miss.slice(0, 10).join(', ') + (miss.length > 10 ? '…' : '')); }
-        E.updateRules(P, { fields: tpl.fields, checks: tpl.checks || [], eligibility: tpl.eligibility || null, duplicateRows: tpl.duplicateRows !== false }, actor());
+        E.updateRules(P, { fields: tpl.fields, checks: tpl.checks || [], eligibility: tpl.eligibility || null, duplicateRows: tpl.duplicateRows !== false, derived: tpl.derived || [], respNumber: tpl.respNumber ?? !!P.respNumber }, actor());
         ui.draft = null; ui.draftDirty = false; ui.step = 3;
         toast(`Loaded ${plural(tpl.fields.length, 'question')} from the template${tpl.qreVersion ? ' (QRE ' + tpl.qreVersion + ')' : ''}. The manager must approve them for this project.`);
       });

@@ -212,3 +212,19 @@ table.health td{vertical-align:middle}table.health td b{font-family:var(--font-h
 @media print{.top,.steps,.next,.actions,.toolbar{display:none}.layout{display:block}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 body:has(.home-top){background:#fff}
+.b-row.band{grid-template-columns:80px auto 80px auto 1fr auto;max-width:600px}.b-row.label{grid-template-columns:1fr auto 1fr auto;max-width:520px}.b-row.part{grid-template-columns:1fr auto;max-width:380px}
+/* ---- in-app guide ---- */
+.guide-page{max-width:1000px}.guide{max-width:1000px}
+.guide h1{font-size:32px;margin:14px 0 6px}.guide h2{margin:34px 0 10px;padding-top:20px;border-top:1px solid var(--rule)}.guide h3{margin:24px 0 8px;font-size:17px}
+.guide p,.guide li{font-size:15px}.guide ul,.guide ol{padding-left:22px}.guide li{margin:5px 0}
+.guide figure{margin:12px 0 18px}.guide img{display:block;max-width:100%;height:auto;border:1px solid var(--rule);border-radius:10px;box-shadow:0 4px 18px #0A1A3F14;background:#fff}
+.guide figcaption{font-size:13.5px;color:var(--muted);margin-top:7px}
+.gtable{width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px;background:#fff;border:1px solid var(--rule);border-radius:8px}
+.gtable td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top;text-align:left}.gtable tr:last-child td{border-bottom:0}.gtable td:first-child{width:36%}
+.ui{display:inline-block;border:1px solid var(--rule-strong);border-radius:6px;padding:0 7px;background:#fff;font-weight:600;font-size:.92em;line-height:1.65;color:var(--navy)}
+.gtoc{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 6px}.gtoc a{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:5px 12px;font-size:13.5px;font-weight:600;text-decoration:none}
+.gcols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.tip{background:var(--mist);border-left:3px solid var(--blue);padding:10px 13px;border-radius:6px;font-size:14px}
+.guide dt{font-weight:700;margin-top:12px}.guide dd{margin:3px 0 0;color:var(--ink)}
+dialog.guidebox{width:min(1040px,96vw)}dialog.guidebox .modal-body{max-height:calc(90vh - 80px)}
+@media (max-width:700px){.gcols{grid-template-columns:1fr}.gtable td{display:block;width:auto!important;border-bottom:0;padding:6px 10px}.gtable tr{display:block;border-bottom:1px solid var(--rule);padding:4px 0}.gtable td:first-child{padding-bottom:0}}

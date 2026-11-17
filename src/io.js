@@ -169,18 +169,23 @@
   function datasetWorkbook(p,d) {
     const book = root.XLSX.utils.book_new();
     const included = d.rows.filter(r=>!r.excluded);
-    const sheet = tableSheet(d.outputColumns,included.map(r=>r.current));
+    // Resp # = the row number in the raw file; added columns are recalculated from the current answers.
+    const RESP = E.RESP_COL, resp = p.respNumber ? [RESP] : [], added = (p.derived||[]).map(x=>x.name);
+    const columns = [...resp, ...d.outputColumns, ...added];
+    const out = r => ({ ...r.current, ...E.derive(p,r.current).values, ...(p.respNumber ? { [RESP]: E.cell(r.sourceRow) } : {}) });
+    const outRows = included.map(out);
+    const sheet = tableSheet(columns,outRows);
     root.XLSX.utils.book_append_sheet(book,sheet,'Cleaned data');
-    root.XLSX.utils.book_append_sheet(book,tableSheet(['Source row key',...d.outputColumns],d.rows.filter(r=>r.excluded).map(r=>({'Source row key':E.cell(r.key),...r.current}))), 'Excluded records');
+    root.XLSX.utils.book_append_sheet(book,tableSheet(['Source row key',...columns],d.rows.filter(r=>r.excluded).map(r=>({'Source row key':E.cell(r.key),...out(r)}))), 'Excluded records');
     const flags=new Map(); for(const i of E.allIssues(p)) if(i.datasetId===d.id && i.decision?.action==='retain') flags.set(i.rowKey,[...(flags.get(i.rowKey)||[]),(i.field?i.field+': ':'')+i.code]);
-    root.XLSX.utils.book_append_sheet(book,logSheet(d.rows.map(r=>({sourceRowKey:r.key,respondent:r.respondent,status:r.excluded?'EXCLUDED':flags.has(r.key)?'INCLUDED WITH ACCEPTED FLAG':'INCLUDED',acceptedFlags:(flags.get(r.key)||[]).join('; '),exclusion:r.excluded?.reason||'',inspectedBy:r.inspected?.by||'',inspectedAt:r.inspected?.at||''}))), 'Record status');
+    root.XLSX.utils.book_append_sheet(book,logSheet(d.rows.map(r=>({[RESP]:r.sourceRow,sourceRowKey:r.key,respondent:r.respondent,status:r.excluded?'EXCLUDED':flags.has(r.key)?'INCLUDED WITH ACCEPTED FLAG':'INCLUDED',acceptedFlags:(flags.get(r.key)||[]).join('; '),exclusion:r.excluded?.reason||'',inspectedBy:r.inspected?.by||'',inspectedAt:r.inspected?.at||''}))), 'Record status');
     const bytes = root.XLSX.write(book,{bookType:'xlsx',type:'array',compression:true});
     // Verify the reporting sheet before offering a release.
     const round = root.XLSX.read(bytes,{type:'array',cellNF:true});
     const check = round.Sheets['Cleaned data'];
-    included.forEach((r,ri)=>d.outputColumns.forEach((name,ci)=>{
-      const original = r.current[name] || E.cell(null), output = check[root.XLSX.utils.encode_cell({r:ri+1,c:ci})];
-      E.assert(original.v === null ? !output || output.v === null : output && output.v === original.v && output.t === (original.t==='d'?'s':original.t), 'Excel round-trip check failed for '+name+' on source row '+r.sourceRow+'.');
+    outRows.forEach((row,ri)=>columns.forEach((name,ci)=>{
+      const original = row[name] || E.cell(null), output = check[root.XLSX.utils.encode_cell({r:ri+1,c:ci})];
+      E.assert(original.v === null ? !output || output.v === null : output && output.v === original.v && output.t === (original.t==='d'?'s':original.t), 'Excel round-trip check failed for '+name+' on source row '+included[ri].sourceRow+'.');
     }));
     return new Uint8Array(bytes);
   }
@@ -265,8 +270,13 @@
     root.XLSX.utils.book_append_sheet(b,logSheet(fields),'Fields');
     root.XLSX.utils.book_append_sheet(b,logSheet(p.fields.flatMap(f=>f.mappings.map(m=>({Field:f.name,From:m.from,To:m.to})))),'Recodes');
     // Structured template data preserves nested conditions losslessly.
+    const describe = d => d.kind === 'band' ? d.bands.map(x => x.min + (x.max === null || x.max === undefined ? '+' : '-' + x.max) + ' = ' + E.bandLabel(x)).join('; ')
+      : d.kind === 'label' ? d.labels.map(x => x.from + ' = ' + x.to).join('; ') : d.parts.join(' ' + d.sep + ' ');
+    root.XLSX.utils.book_append_sheet(b,logSheet([
+      ...(p.respNumber ? [{Column:E.RESP_COL,Kind:'Row number in the raw file',From:'',Definition:'First column of the cleaned data'}] : []),
+      ...(p.derived||[]).map(d=>({Column:d.name,Kind:{band:'Bands',label:'Labels',combine:'Combine'}[d.kind]||d.kind,From:d.source||'',Definition:describe(d)}))]),'Added columns');
     root.XLSX.utils.book_append_sheet(b,tableSheet(['Template_JSON'],[{Template_JSON:E.cell(JSON.stringify(E.template(p)))}]),'Template');
-    root.XLSX.utils.book_append_sheet(b,logSheet([{Instructions:'Edit simple settings on Fields, exact recodes on Recodes. Keep Template sheet for routing/cross-checks. Import then review and reapprove. Separate codes with commas (or | if a code contains a comma). A missing code is distinct from an empty cell.'}]),'Instructions');
+    root.XLSX.utils.book_append_sheet(b,logSheet([{Instructions:'Edit simple settings on Fields, exact recodes on Recodes. Keep Template sheet for routing/cross-checks and added columns (the Added columns sheet is for reading only; change added columns in the app). Import then review and reapprove. Separate codes with commas (or | if a code contains a comma). A missing code is distinct from an empty cell.'}]),'Instructions');
     return new Uint8Array(root.XLSX.write(b,{bookType:'xlsx',type:'array'}));
   }
   function parseTemplate(bytes,name) {
@@ -287,6 +297,7 @@
       if(book.Sheets.Recodes) for(const r of root.XLSX.utils.sheet_to_json(book.Sheets.Recodes,{defval:null})) { const f=t.fields.find(f=>f.name===r.Field); if(f)f.mappings.push({from:r.From,to:r.To}); }
     }
     E.assert(t.schema===1 && Array.isArray(t.fields) && t.fields.length<=500 && Array.isArray(t.checks),'Invalid rules template.');
+    E.assert((t.derived===undefined || (Array.isArray(t.derived) && t.derived.length<=50)) && (t.respNumber===undefined || typeof t.respNumber==='boolean'),'Invalid added columns in rules template.');
     for(const f of t.fields) E.assert(f.name && !E.unsafe(f.name) && Array.isArray(f.allowed) && Array.isArray(f.missing) && Array.isArray(f.mappings),'Invalid rules field.');
     return t;
   }

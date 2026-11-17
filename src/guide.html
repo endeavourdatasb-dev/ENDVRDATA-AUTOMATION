@@ -1,0 +1,162 @@
+<!-- In-app guide. Shown from the start page ("How to use") and from "Guide" in every project.
+     Screenshots live in src/guide/ and are inlined by build.mjs. Regenerate them with tools/guide-screenshots.mjs. -->
+<h1>How to use Survey Cleaner</h1>
+<p class="lead">Survey Cleaner checks, cleans and releases survey data on your own computer. Nothing is uploaded. The work moves through 7 steps, and each step belongs to one person.</p>
+
+<nav class="gtoc" aria-label="Guide contents">
+  <a href="#g-basics">The basics</a><a href="#g-start">Getting started</a><a href="#g-step3">Step 3: Cleaning rules</a><a href="#g-step4">Step 4: Check, fix &amp; inspect</a><a href="#g-later">Steps 5–7</a><a href="#g-faq">Common questions</a>
+</nav>
+
+<section id="g-basics">
+  <h2>The basics</h2>
+  <ul>
+    <li><b>Follow the NEXT STEP banner.</b> The dark-blue box at the top of every step says what to do next and who does it.</li>
+    <li><b>Four roles:</b> Cleaner, Manager, Reviewer and Releasing analyst. Buttons for someone else's role are greyed out. The reviewer must not be the cleaner.</li>
+    <li><b>Nothing is saved automatically.</b> Click <span class="ui">Save project</span> to download a .zip file. To hand over, send that .zip. The next person clicks <span class="ui">Open a saved project</span> and signs in.</li>
+    <li><b>Need help inside a project?</b> Click <span class="ui">Guide</span> at the top to open this page.</li>
+  </ul>
+</section>
+
+<section id="g-start">
+  <h2>Getting started (steps 1–2)</h2>
+  <ol>
+    <li>On the start page, click <span class="ui">Start a new project</span>. Enter the project name and who holds each role, say which one you are, and create your password. Everyone else creates their password the first time they sign in.</li>
+    <li><b>Step 1, Project &amp; questionnaire:</b> fill in the project details and the margin-of-error basis, and attach the approved questionnaire (QRE).</li>
+    <li><b>Step 2, Receive data:</b> drop in the data file (.xlsx, .csv and similar). Standard checks run straight away: IDs, empty or duplicate rows, numbers damaged by Excel, garbled text and more. The file's columns become the questions in step 3.</li>
+  </ol>
+</section>
+
+<section id="g-step3">
+  <h2>Step 3: Cleaning rules</h2>
+  <p><b>Who:</b> the Cleaner sets the rules up and the Manager approves them. You describe what the questionnaire allows, and the app checks only what these rules say.</p>
+
+  <h3>Buttons at the top</h3>
+  <table class="gtable">
+    <tr><td><span class="ui">Load rules template…</span></td><td>Reuse rules saved from an earlier wave (.json or Excel).</td></tr>
+    <tr><td><span class="ui">Save rules template</span></td><td>Save these rules to a file for the next wave.</td></tr>
+    <tr><td><span class="ui">Download rules as Excel</span></td><td>For long questionnaires: fill in the codes in Excel, then load the file back with <span class="ui">Load rules template…</span></td></tr>
+  </table>
+
+  <h3>The questions table</h3>
+  <figure><img src="guide/s3-questions.webp" width="1120" height="760" alt="Questions table with ID, type, required, allowed codes, missing codes, min, max, asked when and Edit for each question"><figcaption>One row per column in the data file.</figcaption></figure>
+  <table class="gtable">
+    <tr><td><b>ID</b></td><td>Choose the respondent ID column. There must be exactly one.</td></tr>
+    <tr><td><b>Type</b></td><td>What the answer should be: codes, text, number, whole number, date or multiple choice.</td></tr>
+    <tr><td><b>Required</b></td><td>Flags blank answers, but only for respondents who were asked the question.</td></tr>
+    <tr><td><b>Allowed codes</b></td><td>The valid answers, e.g. <code>1, 2, 3, 4</code>. Anything else is flagged.</td></tr>
+    <tr><td><b>Missing codes</b></td><td>Refused or don't-know codes, e.g. <code>98, 99</code>. They are accepted as answers.</td></tr>
+    <tr><td><b>Min / Max</b></td><td>The allowed range for numbers, e.g. age <code>15</code> to <code>90</code>.</td></tr>
+    <tr><td><b>Asked when</b></td><td>A summary of the skip logic. You set it with <span class="ui">Edit</span>.</td></tr>
+    <tr><td><span class="ui">Edit</span></td><td>Opens more settings for one question. The small tags next to it show what is set, e.g. <code>4 recodes</code>, <code>trim</code>.</td></tr>
+  </table>
+
+  <h3>Editing a question</h3>
+  <figure><img src="guide/s3-edit-question.webp" width="880" height="914" alt="Question settings for q2_source: asked when q1_aware equals 1, multiple choice with separator ; and exclusive code 99"><figcaption>Example: Q2 is asked only if Q1 (heard of Brand X) is 1 = Yes.</figcaption></figure>
+  <table class="gtable">
+    <tr><td><b>Asked to everyone</b> / <span class="ui">+ Add condition</span></td><td>Skip logic. Untick <b>Asked to everyone</b> and add the condition, e.g. <code>q1_aware equals 1</code>. Anyone else who answered Q2 is flagged.</td></tr>
+    <tr><td><b>Automatically clear answers…</b></td><td>Blanks answers from people who should have skipped the question. Tick it only if the manager approves this as a standing rule.</td></tr>
+    <tr><td><b>Multiple choice</b></td><td>Separator, minimum and maximum number of choices, and exclusive codes. Example: answers look like <code>1;3</code>, and <code>99</code> (None of these) cannot be combined with another choice.</td></tr>
+    <tr><td><b>Approved automatic corrections</b></td><td>Remove spaces, convert numbers stored as text, or keep as text (e.g. phone numbers with a leading 0). Every change is logged.</td></tr>
+    <tr><td><span class="ui">+ Add recode</span></td><td>Replace one exact value with another, e.g. <code>Male → 1</code>, <code>F → 2</code>. Blank answers are never filled in.</td></tr>
+    <tr><td><span class="ui">Done</span></td><td>Keeps your changes on screen. You still need to click <span class="ui">Save rules</span>.</td></tr>
+  </table>
+
+  <h3>Eligibility and cross-question checks</h3>
+  <table class="gtable">
+    <tr><td><span class="ui">Add eligibility rule</span> / <span class="ui">Change</span></td><td>Who counts as eligible, e.g. <code>age is at least 18</code>. Anyone who doesn't match is flagged, never removed automatically. <span class="ui">Everyone is eligible</span> clears the rule.</td></tr>
+    <tr><td><span class="ui">Add a check</span> / <span class="ui">Edit</span> / <span class="ui">Remove</span></td><td>Catches answers that contradict each other: “If … then … must be true”.</td></tr>
+  </table>
+  <figure><img src="guide/s3-check.webp" width="880" height="597" alt="Cross-question check: if q1_aware equals 2 then q3_rating equals 98"><figcaption>Example: people who haven't heard of Brand X can't rate it, so Q3 must be 98 (Don't know).</figcaption></figure>
+  <p class="tip"><b>Tip:</b> don't write a check for skip logic. <b>Asked when</b> already covers it, and a check on a skipped question can only give “unclear” results.</p>
+
+  <h3>Added columns</h3>
+  <figure><img src="guide/s3-added.webp" width="1120" height="458" alt="Added columns card with the Resp # tickbox and four added columns"><figcaption>New columns added to the cleaned data. The original columns are never changed.</figcaption></figure>
+  <table class="gtable">
+    <tr><td><b>Add Resp #</b> (tickbox)</td><td>Adds each respondent's row number in the raw file as the first column, so any row can be traced back. On by default.</td></tr>
+    <tr><td><span class="ui">+ Add column</span></td><td>Creates a new column of one of three kinds (below).</td></tr>
+    <tr><td><span class="ui">Edit</span> / <span class="ui">Remove</span></td><td>Change or delete an added column.</td></tr>
+  </table>
+  <div class="gcols">
+    <figure><img src="guide/s3-col-band.webp" width="880" height="572" alt="Band settings for AGE_BAND: 18 to 29, 30 to 44, 45 to 59, 60 and over"><figcaption><b>Bands</b> group numbers. Example: age 27 → <code>18-29</code>. Leave the last “to” empty for “and over”.</figcaption></figure>
+    <figure><img src="guide/s3-col-label.webp" width="880" height="572" alt="Label settings for RACE_EN: 1 Malay, 2 Chinese, 3 Indian, 4 Others"><figcaption><b>Labels</b> turn codes into words. Example: race 1 → <code>Malay</code>. <span class="ui">Fill in the question's codes</span> lists the codes for you.</figcaption></figure>
+  </div>
+  <p><b>Combine</b> joins columns into one key. Example: SEGMENT = RACE_EN | GENDER_EN | AGE_BAND gives <code>Malay|Female|18-29</code>. It can only use columns listed above it. If a value has no band or label, the added column is left blank and the respondent is flagged in step 4.</p>
+
+  <h3>Save and approve</h3>
+  <ol>
+    <li>The Cleaner clicks <span class="ui">Save rules</span> in the bar at the bottom of the screen. <span class="ui">Discard</span> undoes the unsaved changes.</li>
+    <li>The Manager signs in, checks the rules against the questionnaire, writes a short note and clicks <span class="ui">Approve questionnaire &amp; rules</span>.</li>
+  </ol>
+  <figure><img src="guide/s3-approve.webp" width="1120" height="238" alt="Manager approval card with an approval note and the Approve questionnaire and rules button"></figure>
+  <p class="tip">Changing any rule after approval cancels the approval. The manager approves again, then the cleaner re-runs the checks.</p>
+</section>
+
+<section id="g-step4">
+  <h2>Step 4: Check, fix &amp; inspect</h2>
+  <p><b>The order:</b> ① the Cleaner runs the checks → ② the Manager decides each issue → ③ the Cleaner applies the decisions → ④ the Cleaner inspects every respondent.</p>
+
+  <h3>① Run the checks (Cleaner)</h3>
+  <figure><img src="guide/s4-top.webp" width="1120" height="147" alt="Step 4 counters and the Run checks and approved corrections button"><figcaption>The counters show what is left to do.</figcaption></figure>
+  <table class="gtable">
+    <tr><td><span class="ui">Run checks &amp; approved corrections</span></td><td>Checks every respondent against the approved rules. It first shows every cell the automatic corrections will change. Changes that look the same, e.g. <code>27 → 27</code>, are numbers stored as text being turned into real numbers.</td></tr>
+    <tr><td><span class="ui">Re-run checks</span></td><td>Run them again, e.g. after the rules change.</td></tr>
+    <tr><td><span class="ui">Download logs (Excel)</span></td><td>All issues, decisions and changes so far.</td></tr>
+    <tr><td><span class="ui">Download working data (DRAFT)</span></td><td>The data as it is now. Not for reporting.</td></tr>
+  </table>
+  <figure><img src="guide/s4-run.webp" width="580" height="579" alt="Preview listing the cells the automatic corrections will change, before and after"><figcaption>The preview: e.g. gender <code>Male → 1</code>, from the approved recode.</figcaption></figure>
+
+  <h3>② Decide each issue (Manager): Issues tab</h3>
+  <figure><img src="guide/s4-issues.webp" width="1120" height="891" alt="Issues tab with filters, bulk buttons and a list of issues that need a decision"></figure>
+  <table class="gtable">
+    <tr><td><b>Filters</b></td><td>Show issues by status, problem type or question, or search for a respondent ID.</td></tr>
+    <tr><td><b>Tick boxes</b> + <span class="ui">Retain &amp; flag selected…</span> / <span class="ui">Exclude selected respondents…</span></td><td>Decide many similar issues at once. A reason is required.</td></tr>
+    <tr><td><b>Click a row</b></td><td>Opens the issue to decide it on its own.</td></tr>
+  </table>
+  <figure><img src="guide/s4-decision.webp" width="880" height="837" alt="Issue decision: age 150 corrected to 50 with callback evidence and a reason"><figcaption>Example: age 150 is a typing error. A callback confirmed 50, so choose <b>Correct from evidence</b>, enter 50, the evidence and a reason, then click <span class="ui">Save decision</span>.</figcaption></figure>
+  <table class="gtable">
+    <tr><td><b>Correct from evidence</b></td><td>Change an answer, only with proof, e.g. a callback or vendor confirmation.</td></tr>
+    <tr><td><b>Retain and flag</b></td><td>The answer is genuine, even if unusual. It stays as it is and is flagged in the logs.</td></tr>
+    <tr><td><b>Exclude respondent</b></td><td>Remove from the final data, e.g. a duplicate interview or someone under 18. The original row is kept in the logs.</td></tr>
+  </table>
+
+  <h3>③ Apply the decisions (Cleaner)</h3>
+  <figure><img src="guide/s4-apply.webp" width="760" height="58" alt="Apply 1 decision button"></figure>
+  <p>Click <span class="ui">Apply … decisions</span>. Corrections and exclusions are made, every change is logged, and the checks run again.</p>
+
+  <h3>④ Inspect every respondent (Cleaner): Respondents tab</h3>
+  <figure><img src="guide/s4-respondents.webp" width="1120" height="820" alt="Respondents tab listing respondents with Resp #, status, issues and who inspected them"></figure>
+  <table class="gtable">
+    <tr><td><b>Filter</b> / <b>Search</b></td><td>Show respondents not inspected yet, with open issues, excluded, inspected, or all.</td></tr>
+    <tr><td><b>Click a row</b></td><td>Opens all the answers for one respondent (below).</td></tr>
+    <tr><td><span class="ui">Mark the … on this page as inspected…</span></td><td>Use this after you have looked at every respondent on the page. You tick a box to confirm.</td></tr>
+  </table>
+  <figure><img src="guide/s4-respondent.webp" width="880" height="947" alt="One respondent's answers, showing the corrected age with its old value and the added columns"><figcaption>“was:” shows the original value. The added columns are listed at the bottom.</figcaption></figure>
+  <table class="gtable">
+    <tr><td><span class="ui">Flag</span></td><td>Report a problem the checks missed, e.g. a meaningless open-ended answer like <code>asdfgh</code>. It goes to the manager as an issue.</td></tr>
+    <tr><td><span class="ui">I have inspected this respondent</span></td><td>Records that you looked at this respondent. If the data changes later, they must be inspected again.</td></tr>
+  </table>
+
+  <h3>Change log tab</h3>
+  <figure><img src="guide/s4-changes.webp" width="1120" height="560" alt="Change log listing each change with before, after, reason and who made it"></figure>
+  <p>Every change, with its before and after values, the reason, who made it and when. Nothing changes without a record.</p>
+  <p class="tip">Step 4 is done when no issues need a decision and every respondent is inspected. The NEXT STEP banner then moves to step 5.</p>
+</section>
+
+<section id="g-later">
+  <h2>Steps 5–7</h2>
+  <ol start="5">
+    <li><b>Independent review (Reviewer):</b> look through the data and logs, tick the five review checks, then click Pass or Fail. Fail sends the work back to the cleaner.</li>
+    <li><b>Manager approval (Manager):</b> approve this exact version and give it a version number, e.g. <code>v001</code>.</li>
+    <li><b>Release (Releasing analyst):</b> download the approved Excel file and the release package. The cleaned data has Resp # first and the added columns at the end.</li>
+  </ol>
+</section>
+
+<section id="g-faq">
+  <h2>Common questions</h2>
+  <dl>
+    <dt>Why is a button greyed out?</dt><dd>It belongs to another role. The note on the screen says who. If you hold two roles, switch with the role menu at the top.</dd>
+    <dt>The rules approval disappeared.</dt><dd>A rule changed after approval. The manager approves again, then the cleaner re-runs the checks.</dd>
+    <dt>How do I find a respondent in the raw file?</dt><dd>Use their Resp #: it is their row number in the raw file.</dd>
+    <dt>Can the app fill in a missing answer?</dt><dd>No. A missing answer can only be corrected with evidence, by a manager decision.</dd>
+  </dl>
+</section>
