@@ -18,6 +18,11 @@ node build.mjs
 ```
 This writes `docs/index.html` (published by GitHub Pages) and `dist/Survey_Cleaner.html` (a copy to share, not committed). After changing anything in `src/`, rebuild and commit `docs/index.html`.
 
+While editing, use watch mode. It rebuilds every time you save a file in `src/` or `vendor/`; then refresh the browser. If a script has a syntax error, it says where and leaves the last working page in place.
+```
+node build.mjs --watch      # press Ctrl+C to stop
+```
+
 ## Code layout
 | File | What it does |
 |---|---|
