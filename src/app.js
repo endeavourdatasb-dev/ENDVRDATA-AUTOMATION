@@ -171,7 +171,7 @@
       </header>
       ${ui.dirty ? '<div class="unsaved">You have unsaved changes. Click <b>Save project</b> to keep a copy on this computer. Nothing is saved automatically.</div>' : ''}
       <div class="layout">
-        <nav class="steps" aria-label="Steps">${nav}<p class="side-note">Everything stays on this computer. No internet. No AI.</p></nav>
+        <nav class="steps" aria-label="Steps">${nav}<p class="side-note">Nothing is saved automatically. Use Save project.</p></nav>
         <main>
           <section class="next ${next.who && !isMe ? 'other' : ''}"><div><small>NEXT STEP</small><p>${esc(next.text)}</p>${nextWho}</div>
             <div class="row">${switchBtn}${ui.step !== next.step ? `<button class="small" data-act="go" data-step="${next.step}">Go to step ${next.step}</button>` : ''}</div></section>
@@ -181,37 +181,31 @@
       </div>`;
   }
 
-  const brandBar = (right = '') => `<div class="home-top"><div class="brandmark"><span class="logo" aria-hidden="true"></span><div><b class="wm">ENDEAVOUR DATA</b><small>data · analytics · research · consulting</small></div></div>${right}</div>`;
+  const brandBar = () => `<div class="home-top"><div class="brandmark"><span class="logo" aria-hidden="true"></span><div><b class="wm">ENDEAVOUR DATA</b><small>survey cleaner</small></div></div><span class="ver">DATA SOP 03 · v${esc(E.VERSION)}</span></div>`;
   function homeView() {
-    return `${brandBar('<span class="pill">Offline · No AI · SOP 03</span>')}<div class="home">
-      <div class="hero2">
-        <div>
-          <p class="eyebrow">Data · Cleaning · Verification · Release</p>
-          <h1 class="display">Survey Cleaner</h1>
-          <p class="sub">Clean survey data you can stand behind.</p>
-          <p class="lead">Check survey data against the approved questionnaire, resolve every issue with a recorded decision, get it independently reviewed and approved, then release it, following <b>DATA SOP 03</b>.</p>
-          <div class="btn-row">
-            <button class="primary big" data-act="newProject">Start a new project <span aria-hidden="true">→</span></button>
-            <button class="outline big" data-act="openProject">Open a saved project</button>
-          </div>
-          <p class="demo-line">New here? <button class="link" data-act="demo">Try the demo</button> with made-up data and a demo team.</p>
-        </div>
-        <aside class="panel" aria-label="How it works">
-          <div class="panel-head"><span><i class="pdot"></i>How it works</span><span>SOP 03 · 7 steps</span></div>
-          <ol>${STEPS.map(s => `<li><span class="pn">${String(s.n).padStart(2, '0')}</span><b>${esc(s.title)}</b><span class="pw">${esc(s.who)}</span></li>`).join('')}</ol>
-          <div class="panel-foot"><div><small>Processing</small><b>Local</b><em>nothing leaves this computer</em></div><div><small>Logic</small><b>Fixed rules</b><em>no AI · no guessing</em></div><div><small>Sign-off</small><b>4 roles</b><em>clean · review · approve · release</em></div></div>
-        </aside>
+    return `${brandBar()}<div class="home">
+      <h1>Survey Cleaner</h1>
+      <p class="lead">Check, clean, verify and release survey datasets under DATA SOP 03.</p>
+      <div class="start">
+        <button class="primary big" data-act="newProject">Start a new project</button>
+        <button class="outline big" data-act="openProject">Open a saved project</button>
+        <button class="ghost big" data-act="demo">Practise with the demo</button>
       </div>
-      <div class="note"><b>Accounts:</b> each project has its own team. The person who creates the project names the manager, cleaner, reviewer and releasing analyst. Everyone else creates their own password the first time they sign in.</div>
-      <div class="note"><b>Saving:</b> click <b>Save project</b> to download a .zip of your work. To continue later, or to pass the work to the reviewer or manager, open that .zip with <b>Open a saved project</b>. The browser does not keep your work after you close it.</div>
-      <p class="foot">Survey Cleaner ${esc(E.VERSION)} · SOP 03 offline edition · fixed checking rules replace the SOP's Claude step · a local release package replaces SharePoint/Telegram.</p>
+      <div class="homegrid">
+        <section class="card"><h2>Process</h2>
+          <ol class="proc">${STEPS.map(s => `<li><span class="pn">${s.n}</span><b>${esc(s.title)}</b><span class="pw">${esc(s.who)}</span></li>`).join('')}</ol></section>
+        <section class="card"><h2>Before you start</h2>
+          <p><b>Accounts.</b> Each project has its own team. Whoever creates the project names the manager, cleaner, reviewer and releasing analyst. Everyone else creates their password the first time they sign in.</p>
+          <p><b>Saving.</b> Nothing is saved automatically. Click <b>Save project</b> to download a .zip of the work. To continue later, or to hand over to the reviewer or manager, open that .zip with <b>Open a saved project</b>.</p>
+          <p><b>Demo.</b> Made-up data and a demo team for practice. Every demo password is <code>demo1234</code>.</p></section>
+      </div>
     </div>`;
   }
 
   // ---------- new project set-up & sign-in ----------
   function setupView() {
     const v = ui.setupVals || (ui.setupVals = { name: '', manager: '', cleaner: '', reviewer: '', releaser: '', me: 'manager' });
-    return `${brandBar()}<div class="home narrow"><p class="eyebrow">Step 0 · Set-up</p><h1>New project</h1>
+    return `${brandBar()}<div class="home narrow"><p class="eyebrow">Set-up</p><h1>New project</h1>
       <p class="lead">Name the project and its team. Each person signs in with their own password and can only do their own steps. The manager can change roles later.</p>
       <div class="card"><label class="f"><span>Project name</span><input id="su_name" value="${esc(v.name)}" placeholder="e.g. PKR26 Melaka Wave 1" autofocus></label>
         <h3>Team</h3><div class="grid2">${Object.keys(ROLES).map(r => `<label class="f"><span>${ROLES[r].label}</span><input id="su_${r}" value="${esc(v[r])}" placeholder="Full name"></label>`).join('')}</div>
